@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Free QR Code Generator</title>
+
+<style>
+  :root {
+    --pink-main: #d36c8f;
+    --pink-hover: #e48fb0;
+  }
+
+  body {
+    font-family: system-ui, sans-serif;
+    background: #f5f5f5;
+    margin: 0;
+    padding: 24px;
+  }
+
+  .wrap {
+    max-width: 900px;
+    margin: auto;
+    display: grid;
+    gap: 20px;
+  }
+
+  .card {
+    background: white;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+  }
+
+  textarea, input, button {
+    width: 100%;
+    font: inherit;
+    padding: 10px 12px;
+    margin-top: 8px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 90px;
+  }
+
+  button {
+    cursor: pointer;
+    background: white;
+    transition:
+      border-color 0.15s ease,
+      color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  button:hover:not(:disabled) {
+    border-color: var(--pink-hover);
+    color: var(--pink-hover);
+  }
+
+  button:active:not(:disabled) {
+    background-color: var(--pink-main);
+    border-color: var(--pink-main);
+    color: white;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .buttons {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  @media (min-width: 700px) {
+    .buttons { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  #qrBox {
+    display: grid;
+    place-items: center;
+    padding: 16px;
+  }
+
+  #qrCanvas {
+    max-width: 100%;
+    height: auto;
+    background: white;
+  }
+
+  .small {
+    font-size: 16px;
+    opacity: 0.8;
+  }
+
+  code {
+    background: #eee;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+</style>
+
+<!-- Local QR library -->
+<script src="./qrcode.min.js"></script>
+</head>
+
+<body>
+
+<div class="wrap">
+
+  <div class="card">
+    <h1>Free QR Code Generator</h1>
+    <p class="small">
+      Paste any text or URL. QR codes are generated locally in your browser.
+      No tracking. No expiration.
+    </p>
+  </div>
+
+  <div class="card">
+    <label><strong>Text / URL</strong></label>
+    <textarea id="input">https://pinktreecoffee.com</textarea>
+
+    <label><strong>Size (px)</strong></label>
+    <input id="size" type="number" value="256" min="128" max="2048">
+
+    <div class="buttons">
+      <button id="gen">Generate</button>
+      <button id="download" disabled>Download PNG</button>
+      <button id="copy" disabled>Copy Image</button>
+    </div>
+
+    <p id="status" class="small"></p>
+  </div>
+
+  <div class="card">
+    <div id="qrBox">
+      <canvas id="qrCanvas" width="256" height="256"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <strong>Support</strong>
+    <p class="small">If you found this useful, donations are appreciated.</p>
+    <code>bc1qneh3msxt5jd5fmu5gk8p98eqn6xwp0apuelk7w</code>
+  </div>
+
+</div>
+
+<script>
+const input     = document.getElementById("input");
+const sizeInput = document.getElementById("size");
+const canvas    = document.getElementById("qrCanvas");
+const status    = document.getElementById("status");
+const genBtn    = document.getElementById("gen");
+const dlBtn     = document.getElementById("download");
+const copyBtn   = document.getElementById("copy");
+
+function generate() {
+  const text = input.value.trim();
+  if (!text) {
+    status.textContent = "Paste text or a URL above.";
+    return;
+  }
+
+  const size = Number(sizeInput.value) || 256;
+  canvas.width = size;
+  canvas.height = size;
+
+  const qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+
+  const ctx = canvas.getContext("2d");
+  const cells = qr.getModuleCount();
+  const tile = size / cells;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = "#000000";
+
+  for (let r = 0; r < cells; r++) {
+    for (let c = 0; c < cells; c++) {
+      if (qr.isDark(r, c)) {
+        ctx.fillRect(
+          Math.round(c * tile),
+          Math.round(r * tile),
+          Math.ceil(tile),
+          Math.ceil(tile)
+        );
+      }
+    }
+  }
+
+  status.textContent = "QR generated locally in your browser.";
+  dlBtn.disabled = false;
+  copyBtn.disabled = !(navigator.clipboard && window.ClipboardItem);
+}
+
+function downloadPNG() {
+  const a = document.createElement("a");
+  a.href = canvas.toDataURL("image/png");
+  a.download = "qr-code.png";
+  a.click();
+}
+
+async function copyImage() {
+  try {
+    const blob = await new Promise(r => canvas.toBlob(r, "image/png"));
+    await navigator.clipboard.write([
+      new ClipboardItem({ "image/png": blob })
+    ]);
+    status.textContent = "QR image copied to clipboard.";
+  } catch (e) {
+    status.textContent = "Copy failed. Use Download PNG instead.";
+  }
+}
+
+genBtn.onclick  = generate;
+dlBtn.onclick   = downloadPNG;
+copyBtn.onclick = copyImage;
+
+// Generate on load
+generate();
+</script>
+
+<div class="wrap">
+  <p class="small" style="text-align:center; color: var(--pink-main);">
+    Built by a coffee roaster who got tired of QR codes expiring.
+  </p>
+</div>
+
+</body>
+</html>
